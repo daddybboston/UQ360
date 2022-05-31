@@ -14,7 +14,7 @@ This performance predictor does not have a method to quantify its own uncertaint
 values are zero.  
 """
 class StructuredDataPredictor(PerfPredictor):
-    def __init__(self, calibrator=None):
+    def __init__(self, calibrator=None, **kwargs):
         self.metamodel_list = []
         self.return_all_true = False
         self.x_test = None

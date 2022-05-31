@@ -11,6 +11,7 @@ import sys
 import numpy as np
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from uq360.algorithms.blackbox_metamodel.predictors.base.predictor_base import PerfPredictor
@@ -36,8 +37,8 @@ one mlp metamodel, one GBM metamodel, and one SVM metamodel. This performance pr
 to quantify its own uncertainty, so the uncertainty values are zero.  
 """
 class TextEnsemblePredictor(PerfPredictor):
-    def __init__(self, calibrator="shift"):
-        self.metamodels_considered = ["svm", "gbm", "mlp"]
+    def __init__(self, calibrator="shift", metamodels_considered=["svm", "gbm", "mlp"], random_state=42, **kwargs):
+        self.metamodels_considered = metamodels_considered
         self.metamodels = {}
         self.metamodel_calibrators = {}
 
@@ -45,7 +46,7 @@ class TextEnsemblePredictor(PerfPredictor):
         self.return_all_false = False
         self.x_test = None
         self.y_test = None
-        self.random_state = 42
+        self.random_state = random_state
         self._object_registry = {}
         self.fit_status = False
 
@@ -115,14 +116,16 @@ class TextEnsemblePredictor(PerfPredictor):
                 "activation": ['logistic', 'relu'],
                 "early_stopping": [True],
                 "learning_rate": ['constant', 'adaptive'],
-                "alpha": [0.00001, 0.0001, 0.001]
+                "alpha": [0.00001, 0.0001, 0.001],
+                'random_state': [self.random_state],
             }
 
 
         svm_parameters = {
             'C': [0.1, 1, 10, 100, 1000],
             'gamma': [1, 0.1, 0.01, 0.001, 0.0001],
-            'kernel': ['rbf', 'linear', 'poly','sigmoid']
+            'kernel': ['rbf', 'linear', 'poly','sigmoid'],
+            'random_state': [self.random_state],
         }
 
         gbm_parameters = {
@@ -133,19 +136,29 @@ class TextEnsemblePredictor(PerfPredictor):
             "max_leaf_nodes": list(range(3, 12, 2)),
             "max_features": ["log2", "sqrt"],
             "subsample": np.linspace(0.3, 0.9, 6),
-            "n_estimators": range(100, 401, 50)
+            "n_estimators": range(100, 401, 50),
+            'random_state': [self.random_state],
+        }
+
+        lr_parameters = {
+            'penalty': ['l1', 'l2', 'elasticnet', 'none'],
+            'solver': ['saga'],
+            'class_weight': ['balanced', None],
+            'C': [1.0, 5.0, 10.0],
+            'l1_ratio': [0.5],  # for elasticnet, otherwise ignored
+            'random_state': [self.random_state],
         }
 
         randomized_params = {
             "n_iter": 20,
             "scoring": "f1",
             "n_jobs": -1,
-            "cv": StratifiedKFold(n_splits=3, shuffle=True),
+            "cv": StratifiedKFold(n_splits=3, shuffle=True, random_state=self.random_state),
             "verbose": 0,
             "return_train_score": True,
             "progress_bar": False,
             "random_state": self.random_state}
-        classifier1 = GradientBoostingClassifier()
+        classifier1 = GradientBoostingClassifier(random_state=self.random_state)
         gbm_classifier = CustomRandomSearch(classifier1, gbm_parameters, **randomized_params)
 
 
@@ -157,7 +170,7 @@ class TextEnsemblePredictor(PerfPredictor):
             self.metamodels["gbm"] = gbm
             logger.info("Building GBM Model is complete")
 
-        classifier2 = MLPClassifier()
+        classifier2 = MLPClassifier(random_state=self.random_state)
         mlp_classifier = CustomRandomSearch(classifier2, mlp_parameters, **randomized_params)
 
         mlp = None
@@ -170,7 +183,7 @@ class TextEnsemblePredictor(PerfPredictor):
             logger.info("Building MLP Model is complete")
 
 
-        classifier3 = SVC(probability=True,max_iter=10000)
+        classifier3 = SVC(probability=True, max_iter=10000, random_state=self.random_state)
         svm_classifier = CustomRandomSearch(classifier3, svm_parameters, **randomized_params)
         svm = None
 
@@ -181,6 +194,16 @@ class TextEnsemblePredictor(PerfPredictor):
             logger.info("Building SVM Model is complete")
             self.metamodels["svm"] = svm
 
+        classifier4 = LogisticRegression(random_state=self.random_state)
+        lr_classifier = CustomRandomSearch(classifier4, lr_parameters, **randomized_params)
+        lr = None
+
+        if 'lr' in self.metamodels_considered:
+            lr_classifier.fit(x_dev, y_dev)
+            lr = lr_classifier.best_estimator_
+
+            logger.info("Building LR Model is complete")
+            self.metamodels["lr"] = lr
 
 
         # If calibrator is not None, fit

@@ -66,7 +66,7 @@ class FeatureExtractor:
 
             else:
                 features[pwf] = feature
-        print('Features extracted for :', features.keys())
+        print(f'Features extracted for : {list(features.keys())[:20]}{" ..." if len(features.keys()) > 20 else ""}')
         features = pd.DataFrame(features, columns=features.keys())
         return features
 

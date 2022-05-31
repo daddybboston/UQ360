@@ -9,7 +9,8 @@ class OneClassSVMTransformer(FeatureTransformer):
     outliers in production data at inference time. """
     def __init__(self):
         super(OneClassSVMTransformer, self).__init__()
-        self.one_class_classifier = OneClassSVM(nu=0.1, kernel="rbf", gamma='auto')
+        # self.one_class_classifier = OneClassSVM(nu=0.1, kernel="rbf", gamma='auto')
+        self.one_class_classifier = OneClassSVM(nu=0.1, kernel="rbf", gamma='scale')
         self.fit_status = False
 
     @classmethod

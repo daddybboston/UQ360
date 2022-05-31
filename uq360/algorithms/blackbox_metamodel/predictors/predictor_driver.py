@@ -21,12 +21,14 @@ class PredictorDriver(object):
                  use_drift_classifier=True,
                  uncertainty_model_file=None,
                  uncertainty_model_type=None,
-                 calibrator='isotonic_regression'):
+                 metamodels_considered=["svm", "gbm", "mlp"],
+                 calibrator='isotonic_regression',
+                 random_state=42):
         self.timer = Timer()
         self.timer.start('init')
         self.mode = 'prod'
         # Specify the performance predictor that you would like to run
-        self.perf_predictor = PerfPredictor.instance(pp_type, calibrator=calibrator)
+        self.perf_predictor = PerfPredictor.instance(pp_type, calibrator=calibrator, metamodels_considered=metamodels_considered, random_state=random_state)
 
         self.pointwise_features = None
         self.batch_features = None
@@ -72,6 +74,8 @@ class PredictorDriver(object):
         print("Pointwise features :", self.pointwise_features)
         print("Blackbox features :", self.blackbox_features)
         print("Predictor type :", pp_type)
+        print("calibrator :", calibrator)
+        print("metamodels considered:", metamodels_considered)
         self.feature_extractor = FeatureExtractor(self.pointwise_features, self.batch_features)
 
         # TODO: have a flag to turn this off?

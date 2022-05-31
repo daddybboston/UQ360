@@ -2,7 +2,7 @@ from collections import namedtuple
 
 import numpy as np
 
-from uq360.algorithms.blackbox_metamodel.predictors.predictor_driver import PredictorDriver
+from uq360.algorithms.blackbox_metamodel.predictors.short_text_predictor_driver import PredictorDriver
 from uq360.algorithms.posthocuq import PostHocUQ
 from uq360.utils.utils import UseTransformer
 import logging
@@ -16,7 +16,16 @@ class ShortTextClassificationWrapper(PostHocUQ):
     PostHocUQ model based on the "text_ensemble" performance predictor (uq360.algorithms.blackbox_metamodel.predictors.core.short_text.py).
     """
 
-    def __init__(self, base_model=None, encoder=None):
+    def __init__(self, 
+                 base_model=None,
+                 encoder=None,
+                 use_drift_classifier=True,
+                 use_whitebox=True,
+                 calibrator='shift',
+                 metamodels_considered={'svm': ['confidence_top', 'confidence_delta', 'confidence_entropy', 'class_frequency', 'gbm', 'mlp', 'svc'],
+                                        'gbm': ['confidence_top', 'confidence_delta', 'confidence_entropy', 'class_frequency', 'gbm', 'mlp', 'svc'],
+                                        'mlp': ['confidence_top', 'confidence_delta', 'confidence_entropy', 'class_frequency', 'gbm', 'mlp', 'svc']},
+                 random_state=42):
         """ Returns an instance of a short text predictor
         :param base_model: scikit learn estimator instance which has the capability of returning confidence (predict_proba). base_model can also be None
         :return: predictor instance
@@ -26,15 +35,15 @@ class ShortTextClassificationWrapper(PostHocUQ):
         self.encoder = None
         self.encoder = UseTransformer()
         self.predictor = "text_ensemble"
-        calib = 'shift'
         self.driver = PredictorDriver(self.predictor,
                                       base_model=base_model,
-                                      pointwise_features=None,
                                       batch_features=None,
                                       blackbox_features=None,
-                                      use_whitebox=True,
-                                      use_drift_classifier=True,
-                                      calibrator=calib)
+                                      use_whitebox=use_whitebox,
+                                      use_drift_classifier=use_drift_classifier,
+                                      metamodels_considered=metamodels_considered,
+                                      calibrator=calibrator,
+                                      random_state=random_state)
 
     def fit(self, x_train, y_train, x_test, y_test, test_predicted_probabilities=None):
         """
@@ -96,14 +105,6 @@ class ShortTextClassificationWrapper(PostHocUQ):
         else:
             print('Incoming data is already encoded')
             predictions = self.driver.predict(x, predicted_probabilities=predicted_probabilities)
-
-        output = {'predicted_accuracy': predictions['accuracy'], 'uncertainty': predictions['uncertainty']}
-        if 'error' in predictions:
-            output['error'] = predictions['error']
-
-        if return_predictions:
-            output['predictions_per_datapoint'] = predictions['pointwise_confidences']
-
 
         Result = namedtuple('res',['y_mean', 'y_pred', 'y_score'])
         res = Result(predictions['accuracy'], [], [predictions['pointwise_confidences']])
