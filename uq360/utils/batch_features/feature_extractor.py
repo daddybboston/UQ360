@@ -58,7 +58,8 @@ class FeatureExtractor:
         features = OrderedDict()
         for pwf, pwfo in self.pointwise_feature_objects.items():
             feature = pwfo.transform(x, predicted_probabilities)
-            feature = np.squeeze(feature)
+            if feature.shape[0] > 1:
+                feature = np.squeeze(feature)
             if len(feature.shape) > 1:
                 lth = feature.shape[1]
                 for l in range(lth):
