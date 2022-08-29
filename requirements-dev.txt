@@ -4,3 +4,4 @@ jupyter
 zstandard  # to decompress reddit .zst files
 sentence_transformers  # for MiniLM encoding of text
 xlsxwriter
+pyarrow
